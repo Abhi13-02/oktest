@@ -151,7 +151,7 @@ function Dashboard() {
                       <p>Classroom ID: {room.classroomId}</p>
                       <p>Teacher ID: {room.teacherId}</p>
                       <p>
-                        Students: {room.students.length > 0 ? room.students.join(", ") : "None"}
+                        Students: {room.students?.length > 0 ? room.students.join(", ") : "None"}
                       </p>
                       <p>
                         Tests: {room.tests.length > 0 ? room.tests.join(", ") : "None"}
