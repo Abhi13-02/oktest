@@ -6,12 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Users, Clock, CheckCircle, Play, UserMinus } from "lucide-react";
-import { db } from '../firebase-config'; 
+import { db, auth } from '@/config/firebase'; 
 import { 
   collection, 
   doc, 
   getDocs, 
-  addDoc, 
   query, 
   where,
   updateDoc,
@@ -20,7 +19,8 @@ import {
   onSnapshot 
 } from 'firebase/firestore';
 
-const ClassroomPage = ({ classroomId }) => {
+const ClassroomPage = ({ params }) => {
+    const { classroomId } = params;
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [classroom, setClassroom] = useState(null);
   const [students, setStudents] = useState([]);
@@ -33,6 +33,8 @@ const ClassroomPage = ({ classroomId }) => {
 
   // Fetch classroom data
   useEffect(() => {
+    if (!classroomId) return; // Ensure classroomId is defined
+
     const classroomRef = doc(db, 'classrooms', classroomId);
     const unsubscribe = onSnapshot(classroomRef, async (docSnap) => {
       if (docSnap.exists()) {
@@ -149,7 +151,7 @@ const ClassroomPage = ({ classroomId }) => {
 
   return (
     <div className="container mx-auto p-6 max-w-7xl">
-      {/* Header section remains the same */}
+      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">{classroom?.name}</h1>
