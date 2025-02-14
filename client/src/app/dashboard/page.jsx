@@ -6,12 +6,11 @@ import { auth, db } from "@/config/firebase";
 import {
   doc,
   getDoc,
+  getDocs,
   collection,
-  addDoc,
+  setDoc,
   query,
   where,
-  onSnapshot,
-  orderBy,
 } from "firebase/firestore";
 
 // Shadcn UI components
@@ -28,7 +27,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // For teacher: manage classroom creation and live updates
+  // For teacher: manage classroom creation and fetching
   const [classroomName, setClassroomName] = useState("");
   const [classrooms, setClassrooms] = useState([]);
 
@@ -63,30 +62,24 @@ function Dashboard() {
     }
   }, [user]);
 
-  // For teachers: subscribe to live updates of their classrooms
+  // For teachers: fetch classrooms once (no live subscription)
   useEffect(() => {
     if (user && role === "teacher") {
-      const classroomsRef = collection(db, "classrooms");
-      const q = query(
-        classroomsRef,
-        where("teacherId", "==", user.uid),
-        orderBy("createdAt", "desc")
-      );
-      const unsubscribe = onSnapshot(
-        q,
-        (snapshot) => {
-          const classroomList = snapshot.docs.map((doc) => ({
-            id: doc.id,
+      const fetchClassrooms = async () => {
+        try {
+          const classroomsRef = collection(db, "classrooms");
+          const q = query(classroomsRef, where("teacherId", "==", user.uid));
+          const querySnapshot = await getDocs(q);
+          const classroomList = querySnapshot.docs.map((doc) => ({
             ...doc.data(),
           }));
           setClassrooms(classroomList);
-        },
-        (err) => {
+        } catch (err) {
           console.error("Error fetching classrooms:", err);
           setError("Failed to load classrooms.");
         }
-      );
-      return () => unsubscribe();
+      };
+      fetchClassrooms();
     }
   }, [user, role]);
 
@@ -95,13 +88,26 @@ function Dashboard() {
     e.preventDefault();
     if (!classroomName.trim()) return;
     try {
-      await addDoc(collection(db, "classrooms"), {
+      // Create a new document reference with an auto-generated ID
+      const newDocRef = doc(collection(db, "classrooms"));
+      // Set the classroom document with the required structure
+      await setDoc(newDocRef, {
+        classroomId: newDocRef.id,
+        name: classroomName,
         teacherId: user.uid,
-        classroomName: classroomName,
-        createdAt: new Date(),
+        students: [],
+        tests: [],
       });
       setClassroomName("");
       setError(null);
+      // Refetch classrooms after creation
+      const classroomsRef = collection(db, "classrooms");
+      const q = query(classroomsRef, where("teacherId", "==", user.uid));
+      const querySnapshot = await getDocs(q);
+      const classroomList = querySnapshot.docs.map((doc) => ({
+        ...doc.data(),
+      }));
+      setClassrooms(classroomList);
     } catch (err) {
       console.error("Error creating classroom:", err);
       setError("Failed to create classroom.");
@@ -109,7 +115,7 @@ function Dashboard() {
   };
 
   if (loading) return <div>Loading...</div>;
-
+  if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
 
   return (
     <div className="p-4">
@@ -117,8 +123,8 @@ function Dashboard() {
       {role === "teacher" ? (
         <div>
           <h2 className="text-2xl font-semibold mb-2">Teacher Dashboard</h2>
-          <form onSubmit={handleCreateClassroom} className="flex gap-2 mb-4">
-            <div className="flex flex-col flex-grow">
+          <form onSubmit={handleCreateClassroom} className="flex gap-2 mb-4 items-center">
+            <div className="flex flex-col flex-grow justify-center items-center">
               <Label htmlFor="classroomName" className="mb-1">
                 Classroom Name
               </Label>
@@ -139,12 +145,16 @@ function Dashboard() {
             {classrooms.length > 0 ? (
               <div className="grid gap-4">
                 {classrooms.map((room) => (
-                  <Card key={room.id} className="p-4">
-                    <CardTitle>{room.classroomName}</CardTitle>
+                  <Card key={room.classroomId} className="p-4">
+                    <CardTitle>{room.name}</CardTitle>
                     <CardContent>
+                      <p>Classroom ID: {room.classroomId}</p>
+                      <p>Teacher ID: {room.teacherId}</p>
                       <p>
-                        Created at:{" "}
-                        {new Date(room.createdAt.seconds * 1000).toLocaleString()}
+                        Students: {room.students.length > 0 ? room.students.join(", ") : "None"}
+                      </p>
+                      <p>
+                        Tests: {room.tests.length > 0 ? room.tests.join(", ") : "None"}
                       </p>
                     </CardContent>
                   </Card>
