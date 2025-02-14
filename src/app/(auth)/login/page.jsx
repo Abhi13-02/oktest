@@ -6,7 +6,6 @@ import { auth, db } from "@/config/firebase";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
-  signOut,
   GoogleAuthProvider,
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -18,15 +17,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
-
-  // Helper to check if user exists in Firestore
-  const checkUserInFirestore = async (uid) => {
-    const userDocRef = doc(db, "users", uid);
-    const userDoc = await getDoc(userDocRef);
-    return userDoc.exists();
-  };
-
+const router = useRouter();
   // Email/Password login helper
   const loginHelper = async (e) => {
     e.preventDefault();
@@ -35,19 +26,8 @@ const Login = () => {
     try {
       // Sign in with Firebase Auth using email and password
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      // Check if the user exists in Firestore
-      const exists = await checkUserInFirestore(user.uid);
-      if (!exists) {
-        // If not found, sign out and show error message
-        await signOut(auth);
-        setError("User not found in database. Please sign up.");
-        setLoading(false);
-        return;
-      }
-      
-      console.log("User logged in:", user);
+      console.log("User logged in:", userCredential.user);
+      // You can add redirection logic here if desired
       router.push("/dashboard");
     } catch (err) {
       console.error("Error logging in:", err);
@@ -66,19 +46,18 @@ const Login = () => {
       // Sign in with Google popup
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
-      
-      // Check if the user exists in Firestore
-      const exists = await checkUserInFirestore(user.uid);
-      if (!exists) {
-        // If not found, sign out and show error message
-        await signOut(auth);
-        setError("User not found in database. Please sign up.");
-        setLoading(false);
-        return;
+      // Optionally check if the user exists in Firestore; if not, you can create one
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+      if (!userDoc.exists()) {
+        // Optionally create the user document if it doesn't exist.
+        // await setDoc(userDocRef, { uid: user.uid, email: user.email, displayName: user.displayName, createdAt: new Date() });
+        console.log("User logged in with Google, but no Firestore doc exists yet.");
+      } else {
+        console.log("User logged in with Google:", user);
       }
-      
-      console.log("User logged in with Google:", user);
       router.push("/dashboard");
+      // Add redirection logic here if needed
     } catch (err) {
       console.error("Error logging in with Google:", err);
       setError(err.message);

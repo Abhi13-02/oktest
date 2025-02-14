@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/navigation"; // Import useRouter
 import Link from "next/link";
 import { auth, db } from "@/config/firebase";
 import {
@@ -13,12 +13,10 @@ import {
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
 const SignUp = () => {
-  const router = useRouter();
+  const router = useRouter(); // Initialize router
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  // New state for role selection (default is "student")
-  const [role, setRole] = useState("student");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -31,15 +29,12 @@ const SignUp = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Update the user's profile with the display name
       await updateProfile(user, { displayName });
 
-      // Save user data in Firestore, including the selected role
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         displayName,
         email: user.email,
-        role, // Store the role field (teacher or student)
         createdAt: new Date(),
       });
 
@@ -67,12 +62,10 @@ const SignUp = () => {
       const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
       if (!userDoc.exists()) {
-        // Save user data in Firestore, including the selected role
         await setDoc(userDocRef, {
           uid: user.uid,
           displayName: user.displayName,
           email: user.email,
-          role, // Store the role field (teacher or student)
           createdAt: new Date(),
         });
       }
@@ -131,34 +124,6 @@ const SignUp = () => {
             required
             className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"
           />
-        </div>
-        {/* Role selection */}
-        <div>
-          <p className="block text-sm font-medium text-gray-700">Role</p>
-          <div className="flex space-x-4 mt-1">
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="role"
-                value="student"
-                checked={role === "student"}
-                onChange={(e) => setRole(e.target.value)}
-                className="mr-1"
-              />
-              Student
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="role"
-                value="teacher"
-                checked={role === "teacher"}
-                onChange={(e) => setRole(e.target.value)}
-                className="mr-1"
-              />
-              Teacher
-            </label>
-          </div>
         </div>
         {error && <p className="text-red-500 text-sm">{error}</p>}
         <button
