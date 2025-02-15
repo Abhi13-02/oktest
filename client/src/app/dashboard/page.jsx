@@ -23,22 +23,18 @@ function Dashboard() {
   const router = useRouter();
   const user = auth.currentUser;
   
-  const [role, setRole] = useState(null); // "teacher" or "student"
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // For teacher: manage classroom creation and fetching
   const [classroomName, setClassroomName] = useState("");
   const [classrooms, setClassrooms] = useState([]);
 
-  // Redirect to login if user is not authenticated
   useEffect(() => {
     if (!user) {
       router.push("/login");
     }
   }, [user, router]);
 
-  // Fetch the current user's role from Firestore
   useEffect(() => {
     if (user) {
       const fetchUserRole = async () => {
@@ -62,7 +58,6 @@ function Dashboard() {
     }
   }, [user]);
 
-  // For teachers: fetch classrooms once (no live subscription)
   useEffect(() => {
     if (user && role === "teacher") {
       const fetchClassrooms = async () => {
@@ -83,14 +78,11 @@ function Dashboard() {
     }
   }, [user, role]);
 
-  // Handler for creating a new classroom (for teachers)
   const handleCreateClassroom = async (e) => {
     e.preventDefault();
     if (!classroomName.trim()) return;
     try {
-      // Create a new document reference with an auto-generated ID
       const newDocRef = doc(collection(db, "classrooms"));
-      // Set the classroom document with the required structure
       await setDoc(newDocRef, {
         classroomId: newDocRef.id,
         name: classroomName,
@@ -100,7 +92,7 @@ function Dashboard() {
       });
       setClassroomName("");
       setError(null);
-      // Refetch classrooms after creation
+      
       const classroomsRef = collection(db, "classrooms");
       const q = query(classroomsRef, where("teacherId", "==", user.uid));
       const querySnapshot = await getDocs(q);
@@ -112,6 +104,11 @@ function Dashboard() {
       console.error("Error creating classroom:", err);
       setError("Failed to create classroom.");
     }
+  };
+
+  const handleClassroomClick = (classroomId) => {
+    console.log('Navigating to classroom:', classroomId);
+    router.push(`/classroom/${classroomId}`);
   };
 
   if (loading) return <div>Loading...</div>;
@@ -145,7 +142,11 @@ function Dashboard() {
             {classrooms.length > 0 ? (
               <div className="grid gap-4">
                 {classrooms.map((room) => (
-                  <Card key={room.classroomId} className="p-4">
+                  <Card 
+                    key={room.classroomId} 
+                    className="p-4 cursor-pointer hover:shadow-lg transition-shadow duration-200"
+                    onClick={() => handleClassroomClick(room.classroomId)}
+                  >
                     <CardTitle>{room.name}</CardTitle>
                     <CardContent>
                       <p>Classroom ID: {room.classroomId}</p>
@@ -169,7 +170,6 @@ function Dashboard() {
         <div>
           <h2 className="text-2xl font-semibold">Student Dashboard</h2>
           <p>Welcome to your dashboard, student!</p>
-          {/* Add additional student-specific content here */}
         </div>
       ) : (
         <p>Role not defined.</p>
