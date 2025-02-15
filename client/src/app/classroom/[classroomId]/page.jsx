@@ -11,13 +11,13 @@ import {
   collection, 
   doc, 
   getDocs, 
-  getDoc,
   query, 
   where,
   updateDoc,
   arrayUnion,
   arrayRemove,
-  onSnapshot 
+  onSnapshot,
+  documentId
 } from 'firebase/firestore';
 
 const ClassroomPage = ({ params }) => {
@@ -42,6 +42,7 @@ const ClassroomPage = ({ params }) => {
         console.log('User authenticated:', user.uid);
         setCurrentUser(user);
         
+        // Compare using classroom.teacherId (a string) with current user uid
         if (classroom?.teacherId === user.uid) {
           console.log('User is the teacher of this classroom');
           setIsTeacher(true);
@@ -74,13 +75,13 @@ const ClassroomPage = ({ params }) => {
         console.log('Classroom data received:', classroomData);
         setClassroom(classroomData);
         
-        // Fetch students details
+        // Fetch students details using documentId query
         if (classroomData.students?.length) {
           console.log('Fetching students data...');
           try {
             const studentsQuery = query(
               collection(db, 'users'),
-              where('userId', 'in', classroomData.students)
+              where(documentId(), 'in', classroomData.students)
             );
             const studentDocs = await getDocs(studentsQuery);
             const studentsData = studentDocs.docs.map(doc => ({
@@ -97,7 +98,7 @@ const ClassroomPage = ({ params }) => {
           setStudents([]);
         }
 
-        // Fetch tests
+        // Fetch tests data
         if (classroomData.tests?.length) {
           console.log('Fetching tests data...');
           try {
@@ -111,7 +112,7 @@ const ClassroomPage = ({ params }) => {
               ...doc.data()
             }));
 
-            // Categorize tests
+            // Categorize tests based on time
             const now = new Date();
             const categorizedTests = {
               upcoming: testsData.filter(test => new Date(test.startTime) > now),
@@ -153,7 +154,7 @@ const ClassroomPage = ({ params }) => {
 
     console.log('Attempting to add student:', newStudentEmail);
     try {
-      // Check if user exists
+      // Check if user exists by email
       const userQuery = query(
         collection(db, 'users'),
         where('email', '==', newStudentEmail)
@@ -177,14 +178,14 @@ const ClassroomPage = ({ params }) => {
         return;
       }
 
-      // Update classroom
+      // Update classroom's student list
       const classroomRef = doc(db, 'classrooms', classroomId);
       await updateDoc(classroomRef, {
         students: arrayUnion(userId)
       });
       console.log('Added student to classroom');
 
-      // Update user's classrooms
+      // Update user's classrooms field (relation)
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, {
         classrooms: arrayUnion(classroomId)
@@ -234,7 +235,9 @@ const ClassroomPage = ({ params }) => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">{classroom?.name}</h1>
-          <p className="text-gray-600">Teacher: {classroom?.teacher?.name}</p>
+          {/* Since your schema only stores teacherId, we display it here.
+              You could also fetch and display the teacher's full name if desired. */}
+          <p className="text-gray-600">Teacher: {classroom?.teacherId}</p>
         </div>
         {isTeacher && (
           <Button className="flex items-center gap-2">
