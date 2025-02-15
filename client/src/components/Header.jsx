@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation"; // Import useRouter
 import { signOut } from "firebase/auth";
-import { auth } from "@/config/firebase";
+import { auth } from "../config/firebase";
 
 const Header = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);

@@ -12,7 +12,7 @@ app.use(express.json());
 app.post('/api/extract-pdf', upload.single('pdfFile'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No PDF file uploaded' });
+      return res.status(400).json({ error: 'No PDF file uploaded'});
     }
 
     const pdfBuffer = req.file.buffer;
