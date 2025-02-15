@@ -1,23 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { collection, addDoc } from "firebase/firestore";
-import { db } from "@/config/firebase";
+import { db } from "../../config/firebase";
+import {useTestStore} from "../../zustand/store"; // Import Zustand store
+import test from "../classroom/[classroomId]/test/page";
 
 export default function QuestionsPage() {
-  const searchParams = useSearchParams();
+  const { aiResponse, classroomID , testId} = useTestStore();
   const [questions, setQuestions] = useState([]);
 
   useEffect(() => {
-    const data = searchParams.get("data");
-    console.log("Received data:", data);
+    console.log("Received AI Response:", aiResponse);
 
     const extractJSON = (responseString) => {
       try {
         if (!responseString) return null;
 
-        // Extract JSON from Markdown-style code block
         const match = responseString.match(/```json\s*([\s\S]*?)\s*```/);
         if (match && match[1]) {
           return JSON.parse(match[1]);
@@ -28,23 +27,29 @@ export default function QuestionsPage() {
       return null;
     };
 
-    if (data) {
-      const parsedJSON = extractJSON(data);
+    if (aiResponse) {
+      const parsedJSON = extractJSON(aiResponse);
       console.log("Extracted JSON:", parsedJSON);
 
       if (parsedJSON) setQuestions(parsedJSON);
     }
-  }, [searchParams]);
+  }, [aiResponse]);
 
   const handleSaveToDatabase = async () => {
     try {
+      if(!classroomID || !testId) {
+        console.log(classroomID, testId);
+        
+        alert("Classroom ID or Test ID not found");
+        return
+      }
       for (const question of questions) {
-        await addDoc(collection(db, "questions"), {
+        await addDoc(collection(db, "classrooms", classroomID, "tests",testId, "questions" ), {
           id: question.id,
           question: question.question,
           type: question.type,
           options: question.options || null,
-          correctAnswer: question.answer, // ✅ Storing the correct answer
+          correctAnswer: question.answer,
           marks: question.marks || 1,
         });
       }
@@ -76,15 +81,9 @@ export default function QuestionsPage() {
                 </ul>
               )}
 
-              {q.type === "Text" && (
-                <p className="mt-2 italic">Text-based answer required</p>
-              )}
+              {q.type === "Text" && <p className="mt-2 italic">Text-based answer required</p>}
+              {q.type === "Coding" && <p className="mt-2 italic">Coding response required</p>}
 
-              {q.type === "Coding" && (
-                <p className="mt-2 italic">Coding response required</p>
-              )}
-
-              {/* ✅ Show correct answer for preview */}
               <p className="mt-2 text-green-600">
                 <strong>Correct Answer:</strong> {q.answer}
               </p>

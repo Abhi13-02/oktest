@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "@/config/firebase";
+import { auth, db } from "../../config/firebase";
 import {
   doc,
   getDoc,
@@ -14,10 +14,10 @@ import {
 } from "firebase/firestore";
 
 // Shadcn UI components
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Card, CardContent, CardTitle } from "../../components/ui/card";
 
 function Dashboard() {
   const router = useRouter();

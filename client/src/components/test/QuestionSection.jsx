@@ -2,13 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { generateBotReply } from "@/helpres/extractMessage";
+import { generateBotReply } from "../../helpres/extractMessage";
+import { useTestStore } from "../../zustand/store";
+import { collection, addDoc } from "firebase/firestore";
+import { db } from "../../config/firebase";
 
-
-export default function PDFExtractor() {
+export default function PDFExtractor({ classroomID }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [testStartTime, setTestStartTime] = useState("");
+  const [duration, setDuration] = useState("");
   const router = useRouter();
+  const { setAiResponse, setTestDetails, aiResponse } = useTestStore();
 
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -29,23 +34,49 @@ export default function PDFExtractor() {
       });
 
       const data = await response.json();
-      if (!data.text) {
-        throw new Error("No text extracted");
-      }
+      if (!data.text) throw new Error("No text extracted");
 
-      // Process the extracted text
-      // const dummy = "1) What is the capital of France? a) Berlin b) Madrid c) Paris d) Rome\n Answer: c \n\n 2) What is the difference between HTTP and HTTPS? \nAnswer: HTTP is not secure, while HTTPS uses encryption. \n\n"; 
-      const aiResponse = await generateBotReply(data.text);
-
-      // Navigate to the questions page with extracted JSON
-      router.push(`/questions?data=${(aiResponse)}`);
-      
+      const aiGeneratedText = await generateBotReply(data.text);
+      setAiResponse(aiGeneratedText);
     } catch (error) {
       console.error("Error:", error);
       setError("Failed to process the PDF");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCreateTest = () => {
+    if (!testStartTime || !duration) {
+      alert("Please enter test start time and duration");
+      return;
+    }
+
+    const testDetails = {
+      classroomID,
+      testStartTime,
+      duration: parseInt(duration, 10),
+      description: "Generated Test",
+      teacherId: "T123",
+      testType: "MCQ",
+      createdAt: new Date().toISOString(),
+    };
+
+    setTestDetails(testDetails);
+
+    const testsRef = collection(db, "classrooms", classroomID, "tests");
+    addDoc(testsRef, testDetails)
+      .then((docRef) => {
+        console.log("Test created with ID:", docRef.id);
+        const updatedDetails = { ...testDetails, testId: docRef.id };
+        setTestDetails(updatedDetails);
+      })
+      .catch((error) => {
+        console.error("Error creating test:", error);
+      });
+
+
+    router.push("/questions");
   };
 
   return (
@@ -58,6 +89,40 @@ export default function PDFExtractor() {
 
       {loading && <p className="text-center my-4">Processing...</p>}
       {error && <p className="text-red-500">{error}</p>}
+
+      {aiResponse && (
+        <div className="mt-6 p-4 border rounded bg-gray-100">
+          <h2 className="font-semibold">AI Response:</h2>
+          <pre className="text-sm text-gray-700">{aiResponse}</pre>
+
+          <div className="mt-4">
+            <label className="block font-semibold">Test Start Time:</label>
+            <input
+              type="datetime-local"
+              value={testStartTime}
+              onChange={(e) => setTestStartTime(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+
+          <div className="mt-4">
+            <label className="block font-semibold">Duration (minutes):</label>
+            <input
+              type="number"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+
+          <button
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded"
+            onClick={handleCreateTest}
+          >
+            Create Test
+          </button>
+        </div>
+      )}
     </div>
   );
 }

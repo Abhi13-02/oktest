@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
 import { Plus, Users, Clock, CheckCircle, Play, UserMinus } from "lucide-react";
-import { db, auth } from '@/config/firebase'; 
+import { db, auth } from '../../../config/firebase'; 
 import { 
   collection, 
   doc, 
@@ -18,6 +18,7 @@ import {
   arrayRemove,
   onSnapshot 
 } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 
 const ClassroomPage = ({ params }) => {
     const { classroomId } = params;
@@ -30,6 +31,8 @@ const ClassroomPage = ({ params }) => {
     completed: []
   });
   const [loading, setLoading] = useState(true);
+
+  const router = useRouter();
 
   // Fetch classroom data
   useEffect(() => {
@@ -90,6 +93,10 @@ const ClassroomPage = ({ params }) => {
 
     return () => unsubscribe();
   }, [classroomId]);
+
+  const handelCreateTest = () => {
+    router.push(`/classroom/${classroomId}/test`);
+  }
 
   const handleAddStudent = async (e) => {
     e.preventDefault();
@@ -157,7 +164,7 @@ const ClassroomPage = ({ params }) => {
           <h1 className="text-3xl font-bold">{classroom?.name}</h1>
           <p className="text-gray-600">Teacher: {classroom?.teacher?.name}</p>
         </div>
-        <Button className="flex items-center gap-2">
+        <Button onClick={handelCreateTest} className="flex items-center gap-2">
           <Plus size={20} /> Create Test
         </Button>
       </div>

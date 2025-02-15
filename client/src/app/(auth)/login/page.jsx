@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { auth, db } from "@/config/firebase";
+import { auth, db } from "../../../config/firebase";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
