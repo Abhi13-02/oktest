@@ -16,15 +16,18 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
-  onSnapshot 
+  onSnapshot,
+  documentId
 } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 const ClassroomPage = ({ params }) => {
-    const { classroomId } = params;
+  const { classroomId } = params;
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [classroom, setClassroom] = useState(null);
   const [students, setStudents] = useState([]);
+  const [isTeacher, setIsTeacher] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [tests, setTests] = useState({
     upcoming: [],
     live: [],
@@ -34,59 +37,110 @@ const ClassroomPage = ({ params }) => {
 
   const router = useRouter();
 
+  // Check if current user is the teacher of this classroom
+  useEffect(() => {
+    console.log('Starting auth check...');
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        console.log('User authenticated:', user.uid);
+        setCurrentUser(user);
+        
+        // Compare using classroom.teacherId (a string) with current user uid
+        if (classroom?.teacherId === user.uid) {
+          console.log('User is the teacher of this classroom');
+          setIsTeacher(true);
+        } else {
+          console.log('User is not the teacher of this classroom');
+          setIsTeacher(false);
+        }
+      } else {
+        console.log('No authenticated user');
+        setCurrentUser(null);
+        setIsTeacher(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [classroom]);
+
+
   // Fetch classroom data
   useEffect(() => {
-    if (!classroomId) return; // Ensure classroomId is defined
+    if (!classroomId) {
+      console.log('No classroomId provided');
+      return;
+    }
 
+    console.log('Fetching classroom data for:', classroomId);
     const classroomRef = doc(db, 'classrooms', classroomId);
     const unsubscribe = onSnapshot(classroomRef, async (docSnap) => {
       if (docSnap.exists()) {
         const classroomData = docSnap.data();
+        console.log('Classroom data received:', classroomData);
         setClassroom(classroomData);
         
-        // Fetch students details
+        // Fetch students details using documentId query
         if (classroomData.students?.length) {
-          const studentsQuery = query(
-            collection(db, 'users'),
-            where('userId', 'in', classroomData.students)
-          );
-          const studentDocs = await getDocs(studentsQuery);
-          const studentsData = studentDocs.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          setStudents(studentsData);
+          console.log('Fetching students data...');
+          try {
+            const studentsQuery = query(
+              collection(db, 'users'),
+              where(documentId(), 'in', classroomData.students)
+            );
+            const studentDocs = await getDocs(studentsQuery);
+            const studentsData = studentDocs.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            console.log('Students data fetched:', studentsData.length, 'students');
+            setStudents(studentsData);
+          } catch (error) {
+            console.error('Error fetching students:', error);
+          }
+        } else {
+          console.log('No students in classroom');
+          setStudents([]);
         }
 
-        // Fetch tests
+        // Fetch tests data
         if (classroomData.tests?.length) {
-          const testsQuery = query(
-            collection(db, 'tests'),
-            where('testId', 'in', classroomData.tests)
-          );
-          const testDocs = await getDocs(testsQuery);
-          const testsData = testDocs.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
+          console.log('Fetching tests data...');
+          try {
+            const testsQuery = query(
+              collection(db, 'tests'),
+              where('testId', 'in', classroomData.tests)
+            );
+            const testDocs = await getDocs(testsQuery);
+            const testsData = testDocs.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
 
-          // Categorize tests
-          const now = new Date();
-          const categorizedTests = {
-            upcoming: testsData.filter(test => new Date(test.startTime) > now),
-            live: testsData.filter(test => {
-              const startTime = new Date(test.startTime);
-              const endTime = new Date(startTime.getTime() + test.duration * 60000);
-              return startTime <= now && now <= endTime;
-            }),
-            completed: testsData.filter(test => {
-              const startTime = new Date(test.startTime);
-              const endTime = new Date(startTime.getTime() + test.duration * 60000);
-              return now > endTime;
-            })
-          };
-          setTests(categorizedTests);
+            // Categorize tests based on time
+            const now = new Date();
+            const categorizedTests = {
+              upcoming: testsData.filter(test => new Date(test.startTime) > now),
+              live: testsData.filter(test => {
+                const startTime = new Date(test.startTime);
+                const endTime = new Date(startTime.getTime() + test.duration * 60000);
+                return startTime <= now && now <= endTime;
+              }),
+              completed: testsData.filter(test => {
+                const startTime = new Date(test.startTime);
+                const endTime = new Date(startTime.getTime() + test.duration * 60000);
+                return now > endTime;
+              })
+            };
+            console.log('Tests categorized:', categorizedTests);
+            setTests(categorizedTests);
+          } catch (error) {
+            console.error('Error fetching tests:', error);
+          }
+        } else {
+          console.log('No tests in classroom');
         }
+      } else {
+        console.log('Classroom not found');
       }
       setLoading(false);
     });
@@ -100,8 +154,15 @@ const ClassroomPage = ({ params }) => {
 
   const handleAddStudent = async (e) => {
     e.preventDefault();
+    if (!isTeacher) {
+      console.log('Unauthorized attempt to add student');
+      alert('Only teachers can add students to the classroom');
+      return;
+    }
+
+    console.log('Attempting to add student:', newStudentEmail);
     try {
-      // Check if user exists
+      // Check if user exists by email
       const userQuery = query(
         collection(db, 'users'),
         where('email', '==', newStudentEmail)
@@ -109,24 +170,35 @@ const ClassroomPage = ({ params }) => {
       const userDocs = await getDocs(userQuery);
       
       if (userDocs.empty) {
+        console.log('No user found with email:', newStudentEmail);
         alert('No user found with this email');
         return;
       }
 
       const userData = userDocs.docs[0];
       const userId = userData.id;
+      console.log('Found user:', userId);
 
-      // Update classroom
+      // Check if student is already in classroom
+      if (classroom.students?.includes(userId)) {
+        console.log('Student already in classroom');
+        alert('This student is already in the classroom');
+        return;
+      }
+
+      // Update classroom's student list
       const classroomRef = doc(db, 'classrooms', classroomId);
       await updateDoc(classroomRef, {
         students: arrayUnion(userId)
       });
+      console.log('Added student to classroom');
 
-      // Update user's classrooms
+      // Update user's classrooms field (relation)
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, {
         classrooms: arrayUnion(classroomId)
       });
+      console.log('Added classroom to student profile');
 
       setNewStudentEmail('');
     } catch (error) {
@@ -136,16 +208,25 @@ const ClassroomPage = ({ params }) => {
   };
 
   const handleRemoveStudent = async (studentId) => {
+    if (!isTeacher) {
+      console.log('Unauthorized attempt to remove student');
+      alert('Only teachers can remove students from the classroom');
+      return;
+    }
+
+    console.log('Attempting to remove student:', studentId);
     try {
       const classroomRef = doc(db, 'classrooms', classroomId);
       await updateDoc(classroomRef, {
         students: arrayRemove(studentId)
       });
+      console.log('Removed student from classroom');
 
       const userRef = doc(db, 'users', studentId);
       await updateDoc(userRef, {
         classrooms: arrayRemove(classroomId)
       });
+      console.log('Removed classroom from student profile');
     } catch (error) {
       console.error('Error removing student:', error);
       alert('Failed to remove student');
@@ -162,11 +243,16 @@ const ClassroomPage = ({ params }) => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">{classroom?.name}</h1>
-          <p className="text-gray-600">Teacher: {classroom?.teacher?.name}</p>
+          {/* Since your schema only stores teacherId, we display it here.
+              You could also fetch and display the teacher's full name if desired. */}
+          <p className="text-gray-600">Teacher: {classroom?.teacherId}</p>
         </div>
-        <Button onClick={handelCreateTest} className="flex items-center gap-2">
-          <Plus size={20} /> Create Test
-        </Button>
+
+        {isTeacher && (
+          <Button onClick={handelCreateTest} className="flex items-center gap-2">
+            <Plus size={20} /> Create Test
+          </Button>
+        )}
       </div>
 
       {/* Main Content */}
@@ -228,15 +314,17 @@ const ClassroomPage = ({ params }) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleAddStudent} className="flex gap-2 mb-4">
-                <Input
-                  type="email"
-                  placeholder="Add student by email"
-                  value={newStudentEmail}
-                  onChange={(e) => setNewStudentEmail(e.target.value)}
-                />
-                <Button type="submit">Add</Button>
-              </form>
+              {isTeacher && (
+                <form onSubmit={handleAddStudent} className="flex gap-2 mb-4">
+                  <Input
+                    type="email"
+                    placeholder="Add student by email"
+                    value={newStudentEmail}
+                    onChange={(e) => setNewStudentEmail(e.target.value)}
+                  />
+                  <Button type="submit">Add</Button>
+                </form>
+              )}
               
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {students.map(student => (
@@ -251,14 +339,16 @@ const ClassroomPage = ({ params }) => {
                         Avg. score: {student.performance?.averageScore || 0}%
                       </div>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => handleRemoveStudent(student.id)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <UserMinus size={18} />
-                    </Button>
+                    {isTeacher && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleRemoveStudent(student.id)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <UserMinus size={18} />
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>

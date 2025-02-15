@@ -33,6 +33,8 @@
       "title": "String",
       "testStartTime
       "description": "String",
+      <!-- timer -->
+      'test time':'Timestamp',
       "teacherId": "String",
       "testType": "String",
       "duration": "Number",
@@ -40,6 +42,22 @@
       "difficulty": "String",
       "createdAt": "Timestamp",
       "leaderboard": "Array[String]",
+      "adaptive": "Boolean"
+    }
+  },
+  "testTaken": {
+    "fields": {
+      "testId": "String",
+      "classroomId": "String",
+      "title": "String",
+      "description": "String",
+      "teacherId": "String",
+      "testType": "String",
+      "duration": "Number",
+      "questions": "Array[String]",
+      "difficulty": "String",
+      "createdAt": "Timestamp",
+      "leaderboard": "Array[Users]",
       "adaptive": "Boolean"
     }
   },
