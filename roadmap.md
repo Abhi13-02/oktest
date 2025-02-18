@@ -111,3 +111,9 @@ Key Prioritization Notes
 Focus first on essential features: uploading tests, taking tests, and leaderboards.
 Add adaptive testing and gamification if time allows.
 Community discussions and offline support can be considered as stretch goals.
+
+
+really you are reading this haa???
+
+after losing it out completely
+
